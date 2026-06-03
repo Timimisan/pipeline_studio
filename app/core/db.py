@@ -1,26 +1,27 @@
 from __future__ import annotations
 import uuid
+import os
 from datetime import datetime, timezone
-
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseOAuthAccountTableUUID, SQLAlchemyBaseUserTableUUID
-from sqlalchemy import (
-    Column, Integer, String, Text, ForeignKey, Boolean,
-    DateTime, JSON, Float
-)
+from sqlalchemy import (Column, Integer, String, Text, ForeignKey, Boolean, DateTime, JSON, Float)
 from sqlalchemy.orm import declarative_base, Mapped, relationship
+from sqlalchemy.ext.asyncio import (create_async_engine, async_sessionmaker, AsyncSession)
+from sqlalchemy.dialects.postgresql import UUID
+from dotenv import load_dotenv
 import asyncio
-from sqlalchemy.ext.asyncio import (
-    create_async_engine,
-    async_sessionmaker,
-    AsyncSession
-)
 
-DATABASE_URL = "sqlite+aiosqlite:///./app.db"
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+# ------------------------------------------------------------------
+# 1. ENGINE FIX: statement_cache_size=0 prevents DuplicatePreparedStatementError
+#    during uvicorn --reload (asyncpg cache collisions).
+# ------------------------------------------------------------------
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    future=True
+    future=True,
+    connect_args={"statement_cache_size": 0}
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -55,9 +56,10 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     )
 
     created_at = Column(
-            DateTime,
-            default=datetime.now(timezone.utc)
-        )
+        DateTime,
+        default=datetime.now(timezone.utc)
+    )
+
 
 class OAuthAccount(SQLAlchemyBaseOAuthAccountTableUUID, Base):
     __tablename__ = "oauth_accounts"
@@ -78,14 +80,14 @@ class Problem(Base):
     __tablename__ = "problems"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4,
+        index=True
     )
 
     user_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
         nullable=False
@@ -124,23 +126,24 @@ class Context(Base):
     __tablename__ = "contexts"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4,
+        index=True
     )
 
     user_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
         nullable=False
     )
 
     problem_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("problems.id", ondelete="CASCADE"),
-        index=True
+        index=True,
+        nullable=False
     )
 
     industry = Column(String, nullable=False)
@@ -166,16 +169,17 @@ class ReasoningState(Base):
     __tablename__ = "reasoning_states"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4,
+        index=True
     )
 
     context_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("contexts.id", ondelete="CASCADE"),
-        index=True
+        index=True,
+        nullable=False
     )
 
     failure_mode_A = Column(Text)
@@ -205,20 +209,21 @@ class SubjectTrace(Base):
     __tablename__ = "subject_traces"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
         unique=True
@@ -243,23 +248,25 @@ class HookTrace(Base):
     __tablename__ = "hook_traces"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
-        unique=True
+        nullable=False
     )
 
     hook_text = Column(Text, nullable=False)
@@ -281,23 +288,24 @@ class TensionTrace(Base):
     __tablename__ = "tension_traces"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
-        unique=True
+        nullable=False
     )
 
     tension_text = Column(Text, nullable=False)
@@ -319,23 +327,24 @@ class TransitionQuestion(Base):
     __tablename__ = "transition_questions"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
-        unique=True
+        nullable=False
     )
 
     question_text = Column(Text, nullable=False)
@@ -357,23 +366,24 @@ class AuthorityTrace(Base):
     __tablename__ = "authority_traces"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
-        unique=True
+        nullable=False
     )
 
     authority_text = Column(Text, nullable=False)
@@ -395,23 +405,24 @@ class CtaTrace(Base):
     __tablename__ = "cta_traces"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
-        unique=True
+        nullable=False
     )
 
     cta_text = Column(Text, nullable=False)
@@ -433,23 +444,24 @@ class FinalEmail(Base):
     __tablename__ = "final_emails"
 
     id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
-
-    context_id = Column(
-        String,
-        ForeignKey("contexts.id", ondelete="CASCADE"),
+        default=uuid.uuid4,
         index=True
     )
 
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
         index=True,
-        unique=True
+        nullable=False
     )
 
     final_email = Column(Text, nullable=False)
@@ -478,18 +490,24 @@ class StageAttempt(Base):
     __tablename__ = "stage_attempts"
 
     attempt_id = Column(
-        String,
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
+        default=uuid.uuid4,
+        index=True
     )
 
-    context_id = Column(String, index=True)
+    context_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contexts.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
 
     reasoning_state_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("reasoning_states.id", ondelete="CASCADE"),
-        index=True
+        index=True,
+        nullable=False
     )
 
     stage_name = Column(Text, nullable=False)

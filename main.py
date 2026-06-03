@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 from fastapi import FastAPI, APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -29,14 +30,16 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        ##"""await conn.run_sync(Base.metadata.drop_all)"""
         await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
-    print("engine emptied")
-
 
 app = FastAPI(lifespan=lifespan)
+@app.get("/")
+def health():
+    return {"status": "running"}
+
 
 # ============================================================
 # CORS
@@ -213,5 +216,3 @@ app.include_router(oauth_callback_router, prefix="/auth/google", tags=["auth"])
 # API ROUTES
 # ============================================================
 app.include_router(router, prefix="/api")
-# Check what client_id is actually being used
-print(f"Google OAuth client_id: {google_oauth_client.client_id}")
